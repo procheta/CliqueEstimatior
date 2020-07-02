@@ -1,12 +1,13 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[9]:
+# In[27]:
 
 
 import numpy as np
 import networkx as nx
-
+import nltk
+from nltk.cluster.kmeans import KMeansClusterer
 from sklearn.cluster import KMeans
 from sklearn.cluster import MiniBatchKMeans
 from sklearn.cluster import AgglomerativeClustering
@@ -33,7 +34,7 @@ warnings.filterwarnings("ignore")
 import sklearn
 sklearn.__version__
 
-nCluster=6
+nCluster=4
 nNodes=70
 maxClique=30
 #function to find similarity between two vecs
@@ -168,15 +169,18 @@ print("Average similarity of clique with other nodes", otherNodesSim)
 print("ratio of within clique similarity vs other node similarity ", avgSim/otherNodesSim)
 
 
-kmeans = KMeans(n_clusters=nCluster, random_state=0).fit(vecs)
+#kmeans = KMeans(n_clusters=nCluster, random_state=0).fit(vecs)
+kmeans = KMeansClusterer(nCluster, distance=nltk.cluster.util.cosine_distance, repeats=25, avoid_empty_clusters=True)
+data=np.array(vecs)
+assigned_clusters = kmeans.cluster(data, True)
 
 clusters=[]
 for i in range(nCluster):
     x=[]
     clusters.append(x)
     
-for i in range(len(kmeans.labels_)):
-    clusters[kmeans.labels_[i]].append(int(ids[i]))
+for i in range(len(assigned_clusters)):
+    clusters[assigned_clusters[i]].append(int(ids[i]))
 
 print("Custering completed")    
 
