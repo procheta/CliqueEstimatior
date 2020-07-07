@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[27]:
+# In[9]:
 
 
 import numpy as np
@@ -34,9 +34,13 @@ warnings.filterwarnings("ignore")
 import sklearn
 sklearn.__version__
 
-nCluster=4
+nCluster=6
 nNodes=70
 maxClique=30
+#evaluationflag=0 if we take only the maximum size
+#evaluationflag=1 if we take top most two clusters based on lnly size
+#evaluationflag=2 if we take only the maximum density cluster
+evaluationFlag=2
 #function to find similarity between two vecs
 def findSimilarity(vec1,vec2):
     sim=0
@@ -62,29 +66,54 @@ def findClusterOverlap(clusters,clique):
             index=j
 ##Returning top 2 clusters
             
-def findMaxCluster(clusters, maxCliqueSize):
-    maxSize=0
+def findMaxCluster(clusters, maxCliqueSize,flag,WordVecDic):
     maxCluster=[]
-    for i in range(len(clusters)):
-        cluster=clusters[i]
-        if maxSize < len(cluster):
-            maxSize=len(cluster)
-            maxCluster=cluster
-    print("Size of maximum cluster ", maxSize)
-    secCluster=[]
-    secMax=0
-    for i in range(len(clusters)):
-        cluster=clusters[i]
-        if maxSize != len(cluster):
-            if secMax < len(cluster):
-                secMax=len(cluster)
-                secCluster=cluster
-    print("Size of second maximum cluster ", secMax)
-    print("Fraction of joint cluster size with respect to total number of nodes", (maxSize+secMax)/nNodes)
-    for i in range(len(secCluster)):
-        maxCluster.append(secCluster[i])
+    if evaluationFlag==0 or evaluationFlag==1:
+        maxSize=0
+        for i in range(len(clusters)):
+            cluster=clusters[i]
+            if maxSize < len(cluster):
+                maxSize=len(cluster)
+                maxCluster=cluster
+        print("Size of maximum cluster ", maxSize)
+        print("Fraction of joint cluster size with respect to total number of nodes", (maxSize)/nNodes)
+        secCluster=[]
+        secMax=0
+    if evaluationFlag==1:
+            for i in range(len(clusters)):
+                cluster=clusters[i]
+                if maxSize != len(cluster):
+                    if secMax < len(cluster):
+                        secMax=len(cluster)
+                        secCluster=cluster
+            print("Size of second maximum cluster ", secMax)
+            print("Fraction of joint cluster size with respect to total number of nodes", (maxSize+secMax)/nNodes)
+            for i in range(len(secCluster)):
+                maxCluster.append(secCluster[i])
+    if evaluationFlag==2:
+        maxSim=0
+        clusterIndex=0
+        for i in range(len(clusters)):
+            cluster=clusters[i]
+            sim=findAvgSimilarityWithinCluster(cluster, WordVecDic)
+            if maxSim < sim:
+                maxSim = sim
+                clusterIndex=i
+        maxCluster=clusters[clusterIndex]
+        print("max Cluster index ", clusterIndex)
     return maxCluster
-    
+
+
+def findAvgSimilarityWithinCluster(cluster, WordVecDic):
+    similarity=0
+    for i in range(len(cluster)):
+        vec1=WordVecDic[str(cluster[i])]
+        for j in range(i+1, len(cluster)):
+            vec2=WordVecDic[str(cluster[j])]
+            similarity=similarity+findSimilarity(vec1,vec2)
+    if len(cluster) > 1:
+        similarity=similarity/(len(cluster)*(len(cluster)-1)/2)
+    return similarity
 def evaluateprediction(cluster, clique):
     count=0
     for i in range(len(clique)):
@@ -122,7 +151,7 @@ maxCliqueSize=0
 maxCliqueIndex=0
 index=0
 
-with open("ground_truth_clique_list.txt", "r") as gtcl:
+with open("ground_truth_clique_list_0.3.txt", "r") as gtcl:
     for line in gtcl:
         x=line.strip().split(" ")
         clique=[]
@@ -188,7 +217,7 @@ print("Custering completed")
 clique=clique_list[maxCliqueIndex]
 findClusterOverlap(clusters,clique)
 
-x=findMaxCluster(clusters,maxClique)
+x=findMaxCluster(clusters,maxClique,flag,WordVecDic)
 print("MaxClique")
 #print(x)
 evaluateprediction(x, clique)
