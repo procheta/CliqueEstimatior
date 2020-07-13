@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[9]:
+# In[29]:
 
 
 import numpy as np
@@ -38,15 +38,36 @@ nCluster=6
 nNodes=70
 maxClique=30
 #evaluationflag=0 if we take only the maximum size
-#evaluationflag=1 if we take top most two clusters based on lnly size
+#evaluationflag=1 if we take top most two clusters based on only size
 #evaluationflag=2 if we take only the maximum density cluster
-evaluationFlag=2
+evaluationFlag=0
+
+#predictionMode=0 only degree based prediction
+#predictionMode=1 only centroid similarity based prediction
+#predictionMode=2 both criteria
+#predictionMode=3 print all criteria based results simultaneously
+predictionMode=3
 #function to find similarity between two vecs
 def findSimilarity(vec1,vec2):
     sim=0
     for i in range(len(vec1)):
         sim = sim+vec1[i]*vec2[i]
     return sim
+
+degreeDic={}
+for i in range(nNodes):
+    degreeDic[str(i)]=0
+
+
+with open("edge_file_0.3.txt", "r") as gtcl:
+    for line in gtcl:
+        x=line.strip().split(" ")
+        x1=x[0]
+        degreeDic[x1]=degreeDic[x1]+1
+        x1=x[1]
+        degreeDic[x1]=degreeDic[x1]+1
+        
+    
 
 def intersection(lst1, lst2): 
     lst3 = [value for value in lst1 if value in lst2] 
@@ -64,8 +85,8 @@ def findClusterOverlap(clusters,clique):
         if maxCount < len(l):
             maxCount=len(l)
             index=j
-##Returning top 2 clusters
-            
+
+##Returning top 2 clusters            
 def findMaxCluster(clusters, maxCliqueSize,flag,WordVecDic):
     maxCluster=[]
     if evaluationFlag==0 or evaluationFlag==1:
@@ -114,12 +135,85 @@ def findAvgSimilarityWithinCluster(cluster, WordVecDic):
     if len(cluster) > 1:
         similarity=similarity/(len(cluster)*(len(cluster)-1)/2)
     return similarity
+
+
+def findCentroid(cluster, vecDic):
+    centroid=[]
+    for i in range(len(vecDic[str(cluster[0])])):
+        centroid.append(0)
+    
+    for i in range(len(cluster)):
+        x=cluster[i]
+        vec1=vecDic[str(x)]
+        for j in range(len(vec1)):
+            centroid[j] = centroid[j]+vec1[j]
+    clusterSize=len(cluster)
+    for i in range(len(centroid)):
+        centroid[i] = centroid[i]/clusterSize
+    return centroid
+
+def centroidbasedPrdiction(cluster,vecDic, maxClique):
+    centroid=findCentroid(cluster, vecDic)
+    simValue=[]
+    simDic={}
+    for i in range(len(cluster)):
+        x=cluster[i]
+        pointVec=vecDic[str(x)]
+        sim=findSimilarity(pointVec, centroid)
+        simValue.append(sim)
+        simDic[sim]=x
+         
+        
+    simValue.sort()
+    count=0
+    clique=[]
+    for i in range(len(simValue)):
+        clique.append(simDic[simValue[i]])
+        if count == maxClique:
+            break
+        count=count +1
+    return clique
+    
+
+def predictClique(cluster, degreeArray, vecDic, maxClique):
+    clique=[]
+    clique1=[]
+    if predictionMode==0 or predictionMode==2 or predictionMode==3:
+        for i in range(len(cluster)):
+            if degreeArray[str(cluster[i])] >= (30-1) :
+                clique.append(cluster[i])
+        clique1=clique
+        if len(clique) != 0:
+            print("Degree based Appoach")
+            evaluateprediction(clique, maxClique)
+        else:
+            print("Degree based prediction could't predict any clique")
+    if predictionMode==2:
+        cluster=clique
+    if predictionMode==1 or predictionMode==2 or predictionMode==3:
+        clique=centroidbasedPrdiction(cluster,vecDic, maxClique)
+        if len(clique) != 0:
+            print("Centroid based Appoach")
+            evaluateprediction(clique, maxClique)
+        else:
+            print("Centroid based prediction could't predict any clique")
+    if predictionMode==3:
+        clique=[]
+        if len(clique1) !=0:
+            clique=centroidbasedPrdiction(clique1,vecDic, maxClique)
+        if len(clique) != 0:
+            print("Combined Appoach")
+            evaluateprediction(clique, maxClique)
+        else:
+            print("Combined approach based prediction could't predict any clique")
+    
+    return clique
 def evaluateprediction(cluster, clique):
     count=0
     for i in range(len(clique)):
         if clique[i] in cluster:
             count = count+1
-    print(count, len(cluster))
+    #print(count, len(cluster))
     print("Precision ", count/len(cluster))
     print("Recall ", count/len(clique))
 
@@ -162,11 +256,26 @@ with open("ground_truth_clique_list_0.3.txt", "r") as gtcl:
             maxCliqueSize=len(clique)
             maxCliqueIndex=index
         index=index+1
-            
+
         
 print("max clique index ",maxCliqueIndex) 
 print("size of maximum clique ",maxCliqueSize)
 maxClique=clique_list[maxCliqueIndex]
+
+
+with open("ground_truth_clique_list_0.3.txt", "r") as gtcl:
+    for line in gtcl:
+        x=line.strip().split(" ")
+        clique=[]
+        for x1 in x:
+            clique.append(int(x1))
+        clique_list.append(clique)
+        if maxCliqueSize < len(clique):
+            maxCliqueSize=len(clique)
+            maxCliqueIndex=index
+        index=index+1
+
+
 
 ###computing similarity within cluster######
 avgSim=0
@@ -218,9 +327,13 @@ clique=clique_list[maxCliqueIndex]
 findClusterOverlap(clusters,clique)
 
 x=findMaxCluster(clusters,maxClique,flag,WordVecDic)
-print("MaxClique")
-#print(x)
+print("MaxClique Predictions")
+print("Max Size based prediction")
 evaluateprediction(x, clique)
+cl=predictClique(x, degreeDic, WordVecDic, clique)
+#print("Predicted ", cl)
+#print(x)
+#evaluateprediction(cl, clique)
 
 
 # In[ ]:
