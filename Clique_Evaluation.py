@@ -1,15 +1,14 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[29]:
+# In[17]:
 
 
 import numpy as np
 import networkx as nx
 import nltk
 from nltk.cluster.kmeans import KMeansClusterer
-from sklearn.cluster import KMeans
-from sklearn.cluster import MiniBatchKMeans
+from sklearn.cluster import AffinityPropagation
 from sklearn.cluster import AgglomerativeClustering
 from sklearn.mixture import GaussianMixture
 
@@ -34,9 +33,9 @@ warnings.filterwarnings("ignore")
 import sklearn
 sklearn.__version__
 
-nCluster=6
-nNodes=70
-maxClique=30
+nCluster=4
+nNodes=100
+maxClique=20
 #evaluationflag=0 if we take only the maximum size
 #evaluationflag=1 if we take top most two clusters based on only size
 #evaluationflag=2 if we take only the maximum density cluster
@@ -55,7 +54,7 @@ def findSimilarity(vec1,vec2):
     return sim
 
 degreeDic={}
-for i in range(nNodes):
+for i in range(1,nNodes+1):
     degreeDic[str(i)]=0
 
 
@@ -87,7 +86,7 @@ def findClusterOverlap(clusters,clique):
             index=j
 
 ##Returning top 2 clusters            
-def findMaxCluster(clusters, maxCliqueSize,flag,WordVecDic):
+def findMaxCluster(clusters, maxCliqueSize,WordVecDic):
     maxCluster=[]
     if evaluationFlag==0 or evaluationFlag==1:
         maxSize=0
@@ -180,7 +179,7 @@ def predictClique(cluster, degreeArray, vecDic, maxClique):
     clique1=[]
     if predictionMode==0 or predictionMode==2 or predictionMode==3:
         for i in range(len(cluster)):
-            if degreeArray[str(cluster[i])] >= (30-1) :
+            if degreeArray[str(cluster[i])] >= (20-1) :
                 clique.append(cluster[i])
         clique1=clique
         if len(clique) != 0:
@@ -263,20 +262,6 @@ print("size of maximum clique ",maxCliqueSize)
 maxClique=clique_list[maxCliqueIndex]
 
 
-with open("ground_truth_clique_list_0.3.txt", "r") as gtcl:
-    for line in gtcl:
-        x=line.strip().split(" ")
-        clique=[]
-        for x1 in x:
-            clique.append(int(x1))
-        clique_list.append(clique)
-        if maxCliqueSize < len(clique):
-            maxCliqueSize=len(clique)
-            maxCliqueIndex=index
-        index=index+1
-
-
-
 ###computing similarity within cluster######
 avgSim=0
 for i in range(len(maxClique)):
@@ -307,18 +292,20 @@ print("Average similarity of clique with other nodes", otherNodesSim)
 print("ratio of within clique similarity vs other node similarity ", avgSim/otherNodesSim)
 
 
-#kmeans = KMeans(n_clusters=nCluster, random_state=0).fit(vecs)
-kmeans = KMeansClusterer(nCluster, distance=nltk.cluster.util.cosine_distance, repeats=25, avoid_empty_clusters=True)
-data=np.array(vecs)
-assigned_clusters = kmeans.cluster(data, True)
+
+clustering = AffinityPropagation().fit(vecs)
+cluster_centers_indices = clustering.cluster_centers_indices_
+nCluster=len(cluster_centers_indices)
+print("Number of clusters created", nCluster)
 
 clusters=[]
+
 for i in range(nCluster):
     x=[]
     clusters.append(x)
     
-for i in range(len(assigned_clusters)):
-    clusters[assigned_clusters[i]].append(int(ids[i]))
+for i in range(len(clustering.labels_)):
+    clusters[clustering.labels_[i]].append(int(ids[i]))
 
 print("Custering completed")    
 
@@ -326,7 +313,7 @@ print("Custering completed")
 clique=clique_list[maxCliqueIndex]
 findClusterOverlap(clusters,clique)
 
-x=findMaxCluster(clusters,maxClique,flag,WordVecDic)
+x=findMaxCluster(clusters,maxClique,WordVecDic)
 print("MaxClique Predictions")
 print("Max Size based prediction")
 evaluateprediction(x, clique)
