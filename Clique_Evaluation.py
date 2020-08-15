@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[17]:
+# In[15]:
 
 
 import numpy as np
@@ -33,13 +33,14 @@ warnings.filterwarnings("ignore")
 import sklearn
 sklearn.__version__
 
-nCluster=4
+nCluster=1
 nNodes=100
-maxClique=20
+maxCliqueSize=44
 #evaluationflag=0 if we take only the maximum size
 #evaluationflag=1 if we take top most two clusters based on only size
 #evaluationflag=2 if we take only the maximum density cluster
-evaluationFlag=0
+#evaluationflag=3 Merge until total size greater than clique size
+evaluationFlag=3
 
 #predictionMode=0 only degree based prediction
 #predictionMode=1 only centroid similarity based prediction
@@ -58,7 +59,7 @@ for i in range(1,nNodes+1):
     degreeDic[str(i)]=0
 
 
-with open("edge_file_0.3.txt", "r") as gtcl:
+with open("C:/Users/Procheta/Downloads/clique_graph_generator_code.tar/clique_graph_generator_code/edge_file_100_1_0.8.txt", "r") as gtcl:
     for line in gtcl:
         x=line.strip().split(" ")
         x1=x[0]
@@ -80,10 +81,13 @@ def findClusterOverlap(clusters,clique):
         clusterSize=len(c)
         count=0
         l=intersection(c,clique)
-        print("For cluster number ",j, "fraction of total Cluster size", (len(l)/len(c)), " fraction of clique ", (len(l)/len(clique)))
+        print("For cluster number ",j, "fraction of total Cluster size", (len(c)), " fraction of clique ", (len(l)/len(clique)))
         if maxCount < len(l):
             maxCount=len(l)
             index=j
+            
+
+            
 
 ##Returning top 2 clusters            
 def findMaxCluster(clusters, maxCliqueSize,WordVecDic):
@@ -121,6 +125,38 @@ def findMaxCluster(clusters, maxCliqueSize,WordVecDic):
                 clusterIndex=i
         maxCluster=clusters[clusterIndex]
         print("max Cluster index ", clusterIndex)
+    if evaluationFlag==3:
+        maxSize=0
+        clusterIndex=0
+        centroids=[]
+        simDict={}
+        for i in range(len(clusters)):
+            cluster=clusters[i]
+            centroids.append(findCentroid(cluster, WordVecDic))
+            if maxSize < len(cluster):
+                maxSize = len(cluster)
+                clusterIndex=i
+        print("max Cluster index ", clusterIndex)
+        maxCluster=clusters[clusterIndex]
+        maxClusterCentroid=centroids[clusterIndex]
+        similarities=[]
+        for i in range(len(clusters)):
+            centroidVec=centroids[i]
+            if i != clusterIndex:
+                sim=findSimilarity(maxClusterCentroid,centroidVec)
+                simDict[sim]=i
+                similarities.append(sim)
+        similarities.sort()
+        for i in range(len(similarities)):
+            sim=similarities[i]
+            index=simDict[sim]
+            cluster=clusters[index]
+            if len(maxCluster) < maxCliqueSize:
+                print("cluster index ", index)
+                for j in range(len(cluster)):
+                    maxCluster.append(cluster[j])
+            else:
+                break;
     return maxCluster
 
 
@@ -220,7 +256,7 @@ WordVecDic={}
 vecs=[]
 ids=[]
 flag=0
-with open("output", "r") as f:
+with open("C:/Users/Procheta/Downloads/clique_graph_generator_code.tar/clique_graph_generator_code/output_new", "r") as f:
     for line in f:
         if flag == 0:
             flag=1
@@ -235,16 +271,20 @@ with open("output", "r") as f:
                     vec.append(float(word))
                 else:
                     count=1
-            vecs.append(vec)
-            ids.append(int(key))
-            WordVecDic[key]=vec
+            try:
+                ids.append(int(key))
+                WordVecDic[key]=vec
+                vecs.append(vec)
+            except:
+                print("key ", key)
+                #print(line)
                         
 clique_list=[]
 maxCliqueSize=0
 maxCliqueIndex=0
 index=0
 
-with open("ground_truth_clique_list_0.3.txt", "r") as gtcl:
+with open("C:/Users/Procheta/Downloads/clique_graph_generator_code.tar/clique_graph_generator_code/ground_truth_clique_list_100_1_0.8.txt", "r") as gtcl:
     for line in gtcl:
         x=line.strip().split(" ")
         clique=[]
@@ -264,6 +304,7 @@ maxClique=clique_list[maxCliqueIndex]
 
 ###computing similarity within cluster######
 avgSim=0
+print(WordVecDic.keys())
 for i in range(len(maxClique)):
     vec1=WordVecDic[str(maxClique[i])]
     for j in range(i+1,len(maxClique)):
@@ -313,7 +354,7 @@ print("Custering completed")
 clique=clique_list[maxCliqueIndex]
 findClusterOverlap(clusters,clique)
 
-x=findMaxCluster(clusters,maxClique,WordVecDic)
+x=findMaxCluster(clusters,maxCliqueSize,WordVecDic)
 print("MaxClique Predictions")
 print("Max Size based prediction")
 evaluateprediction(x, clique)
