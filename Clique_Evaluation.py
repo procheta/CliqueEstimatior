@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[15]:
+# In[3]:
 
 
 import numpy as np
@@ -34,13 +34,14 @@ import sklearn
 sklearn.__version__
 
 nCluster=1
-nNodes=100
-maxCliqueSize=44
+nNodes=10000
+maxCliqueSize=397
 #evaluationflag=0 if we take only the maximum size
 #evaluationflag=1 if we take top most two clusters based on only size
 #evaluationflag=2 if we take only the maximum density cluster
 #evaluationflag=3 Merge until total size greater than clique size
-evaluationFlag=3
+#evaluationflag=4 use density and size simultaneously
+evaluationFlag=4
 
 #predictionMode=0 only degree based prediction
 #predictionMode=1 only centroid similarity based prediction
@@ -48,10 +49,23 @@ evaluationFlag=3
 #predictionMode=3 print all criteria based results simultaneously
 predictionMode=3
 #function to find similarity between two vecs
+
+def getVecNorm(vec1):
+    norm=0
+    for i in range(len(vec1)):
+        norm = norm+vec1[i]*vec1[i]
+    norm = np.sqrt(norm)
+    return norm
+
+
 def findSimilarity(vec1,vec2):
     sim=0
     for i in range(len(vec1)):
         sim = sim+vec1[i]*vec2[i]
+    vec1_norm=getVecNorm(vec1)
+    vec2_norm= getVecNorm(vec2)
+    sim = sim/(vec1_norm*vec2_norm)
+    sim = (sim+1)/2
     return sim
 
 degreeDic={}
@@ -59,13 +73,16 @@ for i in range(1,nNodes+1):
     degreeDic[str(i)]=0
 
 
-with open("C:/Users/Procheta/Downloads/clique_graph_generator_code.tar/clique_graph_generator_code/edge_file_100_1_0.8.txt", "r") as gtcl:
+with open("C:/Users/Procheta/Downloads/edge_file_10000_10_0.5.txt", "r") as gtcl:
     for line in gtcl:
         x=line.strip().split(" ")
         x1=x[0]
-        degreeDic[x1]=degreeDic[x1]+1
-        x1=x[1]
-        degreeDic[x1]=degreeDic[x1]+1
+        try:
+            degreeDic[x1]=degreeDic[x1]+1
+            x1=x[1]
+            degreeDic[x1]=degreeDic[x1]+1
+        except:
+            v=0
         
     
 
@@ -157,6 +174,19 @@ def findMaxCluster(clusters, maxCliqueSize,WordVecDic):
                     maxCluster.append(cluster[j])
             else:
                 break;
+                
+        if evaluationflag ==4 :
+            denseVal=0
+            clusterIndex=0
+            for i in range(len(clusters)):
+                x=findAvgSimilarityWithinCluster(clusters[i], WordVecDic)
+                y=len(clusters[i])
+                z= x*y
+                if denseVal < z:
+                    denseVal=z
+                    clusterIndex=i
+            maxCluster=clusters[i]
+            
     return maxCluster
 
 
@@ -256,7 +286,7 @@ WordVecDic={}
 vecs=[]
 ids=[]
 flag=0
-with open("C:/Users/Procheta/Downloads/clique_graph_generator_code.tar/clique_graph_generator_code/output_new", "r") as f:
+with open("C:/Users/Procheta/Downloads/output_0.5.vec", "r") as f:
     for line in f:
         if flag == 0:
             flag=1
@@ -268,7 +298,10 @@ with open("C:/Users/Procheta/Downloads/clique_graph_generator_code.tar/clique_gr
             count=0
             for word in words:
                 if count>=1:
-                    vec.append(float(word))
+                    try:
+                        vec.append(float(word))
+                    except:
+                        v=0
                 else:
                     count=1
             try:
@@ -284,7 +317,7 @@ maxCliqueSize=0
 maxCliqueIndex=0
 index=0
 
-with open("C:/Users/Procheta/Downloads/clique_graph_generator_code.tar/clique_graph_generator_code/ground_truth_clique_list_100_1_0.8.txt", "r") as gtcl:
+with open("C:/Users/Procheta/Downloads/ground_truth_clique_list_10000_10_0.5.txt", "r") as gtcl:
     for line in gtcl:
         x=line.strip().split(" ")
         clique=[]
@@ -304,7 +337,7 @@ maxClique=clique_list[maxCliqueIndex]
 
 ###computing similarity within cluster######
 avgSim=0
-print(WordVecDic.keys())
+#print(WordVecDic.keys())
 for i in range(len(maxClique)):
     vec1=WordVecDic[str(maxClique[i])]
     for j in range(i+1,len(maxClique)):
@@ -337,6 +370,8 @@ print("ratio of within clique similarity vs other node similarity ", avgSim/othe
 clustering = AffinityPropagation().fit(vecs)
 cluster_centers_indices = clustering.cluster_centers_indices_
 nCluster=len(cluster_centers_indices)
+
+
 print("Number of clusters created", nCluster)
 
 clusters=[]
